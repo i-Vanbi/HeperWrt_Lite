@@ -1,0 +1,226 @@
+#
+# 请大家记住拉取的是我的 281677160/build-actions 仓库，拉取的是其他仓库有问题，别问我，我也不清楚什么问题
+#
+# 因为SSH连接配置固件直接编译，会给github停止编译的,所以要另外触发启动编译程序
+#
+# 新注册的帐号，SSH连接服务器的时间最好不要太长，10分钟左右就退出，没设置完就再来一次或者多次应该比较好
+#
+# 运行此程序不是直接编译，是修改配置文件和触发编译，正确运行完毕后，在Actions刷新网页看看你的编译程序运行了没有
+#
+# 一般情况下都能触发启动编译的，除非没设置好密匙，或者密匙过期了，或者密匙错误之类的
+#
+# REPO_TOKEN密匙制作教程：https://git.io/jm.md
+#
+#
+
+name: OpenWrt_x64_gxnas
+on:
+  workflow_dispatch:
+    inputs:
+      REPO_BRANCH:
+        description: '大雕源码'
+        required: true
+        default: 'master'
+        type: choice
+        options:
+          - 'master'
+      CONFIG_FILE:
+        description: '请选择配置文件'
+        required: true
+        default: 'x64_gxnas'
+        type: choice
+        options:
+          - 'x64_gxnas'
+      CPU_SELECTION:
+        description: 'CPU优选,增加编译速度'
+        required: true
+        default: '选择8370C'
+        type: choice
+        options:
+          - '弃用E5系列'
+          - '选择8370C'
+          - '选择8272CL'
+          - '选择8171M'
+      INFORMATION_NOTICE:
+        description: 'Telegram或pushplus信息通知'
+        required: true
+        default: 'pushplus'
+        type: choice
+        options:
+          - '关闭'
+          - 'Telegram'
+          - 'pushplus'
+      SSH_ACTION:
+        description: 'SSH远程配置固件'
+        required: false
+        default: 'false'
+        type: boolean
+      UPLOAD_FIRMWARE:
+        description: '上传固件到 Github Artifacts'
+        required: false
+        default: 'true'
+        type: boolean
+      UPLOAD_RELEASE:
+        description: '发布固件到 Github Releases'
+        required: false
+        default: 'false'
+        type: boolean
+      CACHEWRTBUILD_SWITCH:
+        description: '缓存加速编译'
+        required: false
+        default: 'true'
+        type: boolean
+      UPDATE_FIRMWARE_ONLINE:
+        description: '增加在线更新功能/N1和晶晨系列固件打包'
+        required: false
+        default: 'true'
+        type: boolean
+      COLLECTED_PACKAGES:
+        description: '是否加入作者收集的插件包'
+        required: false
+        default: 'true'
+        type: boolean
+
+
+# 定时触发开启开始编译(把下面两个#去掉开启,时间设置请看定时开启编译说明)
+  schedule:
+   - cron: 0 2 * * 5
+
+env:
+  GITHUB_LINK: https://github.com/${{github.repository}}
+  GIT_ACTOR: ${{github.actor}}
+  GIT_REPOSITORY: ${{github.repository}}
+  RUN_NUMBER: ${{github.run_number}}
+  RUN_WORKFLOW: ${{github.workflow}}
+  REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
+  PUSH_PLUS_TOKEN: ${{ secrets.PUSH_PLUS_TOKEN }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    name: 启动"${{ matrix.target }}-${{ github.event.inputs.REPO_BRANCH }}"触发编译
+    runs-on: ubuntu-22.04
+    if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
+    
+    env:
+      FOLDER_NAME: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [Lede]
+        
+        # 请勿对 target: [Lede] 做任何修改
+        
+    steps:
+    - name: 密匙检测（密匙为空则退出）
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        if [[ -z "${{ secrets.REPO_TOKEN }}" ]]; then
+          echo "您没有设置仓库密匙，请按教程设置好密匙再来"
+          echo "REPO_TOKEN密匙制作教程：https://git.io/jm.md"
+          exit 1
+        fi
+    
+    - name: 准备结束
+      uses: actions/checkout@v3  
+
+    - name: 读取脚本设置
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        git clone https://github.com/gxnas/OpenWrt-Common build/common
+        mv -f build/common/*.sh build/${{ env.FOLDER_NAME }}/
+        chmod -R +x build
+        export SOURCE_CODE="$(source "build/${{ matrix.target }}/settings.ini" && echo ${SOURCE_CODE})"
+        export INPUTS_INFORMATION_NOTICE="${{ github.event.inputs.INFORMATION_NOTICE }}"
+        export INPUTS_REPO_BRANCH="${{ github.event.inputs.REPO_BRANCH }}"
+        export INPUTS_CONFIG_FILE="${{ github.event.inputs.CONFIG_FILE }}"
+        export INPUTS_UPLOAD_FIRMWARE="${{ github.event.inputs.UPLOAD_FIRMWARE }}"
+        export INPUTS_UPLOAD_RELEASE="${{ github.event.inputs.UPLOAD_RELEASE }}"
+        export INPUTS_CACHEWRTBUILD_SWITCH="${{ github.event.inputs.CACHEWRTBUILD_SWITCH }}"
+        export INPUTS_UPDATE_FIRMWARE_ONLINE="${{ github.event.inputs.UPDATE_FIRMWARE_ONLINE }}"
+        export INPUTS_PACKAGING_FIRMWARE="${{ github.event.inputs.PACKAGING_FIRMWARE }}"
+        export INPUTS_COLLECTED_PACKAGES="${{ github.event.inputs.COLLECTED_PACKAGES }}"
+        export INPUTS_CPU_SELECTION="${{ github.event.inputs.CPU_SELECTION }}"
+        source build/${{ env.FOLDER_NAME }}/common.sh && settings_variable
+        source build/${{ env.FOLDER_NAME }}/common.sh && Diy_menu1
+        echo "${{ github.event.schedule }}"
+        
+    - name: 部署编译环境
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo -E apt-get -qq update -y
+        sudo -E apt-get -qq install -y gawk git gettext libssl-dev xsltproc zip git-core wget curl grep python2.7 python3 python3-pip libpython3-dev
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /${{ env.DIY_WORK }}
+        sudo chown $USER:$GROUPS /${{ env.DIY_WORK }}
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
+    
+    - name: 下载"${{ matrix.target }}"源码
+      working-directory: /${{ env.DIY_WORK }}
+      run: |
+        git clone -b "${REPO_BRANCH}" --single-branch "${REPO_URL}" openwrt
+        ln -sf /${{ env.DIY_WORK }}/openwrt ${GITHUB_WORKSPACE}/openwrt
+        source ${GITHUB_WORKSPACE}/build/${{ env.FOLDER_NAME }}/common.sh && Diy_checkout
+    
+    - name: 公 告
+      if: env.REPO_TOKEN
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        cp -Rf `find ./ -maxdepth 1 -type d ! -path './openwrt' ! -path './'` openwrt
+        cd openwrt
+        source ${BUILD_PATH}/common.sh && Diy_menu2
+ 
+    - name: 增加插件源
+      if: env.REPO_TOKEN
+      run: |
+        cd openwrt
+        source ${BUILD_PATH}/common.sh && Diy_menu3
+ 
+    - name: 加载diy-part.sh文件
+      if: env.REPO_TOKEN
+      run: |
+        cd openwrt
+        source ${BUILD_PATH}/common.sh && Diy_zdypartsh
+        source ${BUILD_PATH}/common.sh && Diy_Publicarea
+        
+    - name: 加载源、补丁和files文件夹
+      if: env.REPO_TOKEN
+      run: |
+        cd openwrt
+        source ${BUILD_PATH}/common.sh && Diy_menu4
+    
+    - name: SSH远程连接（制作.config配置文件）
+      if: github.event.inputs.SSH_ACTION == 'true'
+      uses: danshui-git/debugger-action@main
+
+    - name: 生成"${{ matrix.target }}"配置文件
+      if: env.REPO_TOKEN
+      id: compile
+      run: |
+        cd openwrt
+        source ${BUILD_PATH}/common.sh && Diy_menu5
+        
+    - name: 上传.config配置文件在 github actions
+      if: steps.compile.outcome == 'success'
+      uses: actions/upload-artifact@main
+      with:
+        name: OpenWrt_${{ github.event.inputs.CONFIG_FILE }}-${{ env.Firmware_Date }}.config
+        path: openwrt/build_logo/config.txt
+        
+    - name: 编译信息
+      continue-on-error: true
+      if: env.COMPILATION_INFORMATION == 'true'
+      run: |
+        cd openwrt
+        source ${BUILD_PATH}/common.sh && Diy_xinxi
+    
+    - name: 触发compile.yml启动"${{ matrix.target }}"编译
+      id: gitpush
+      if: steps.compile.outcome == 'success' && env.REPO_TOKEN
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        source ${BUILD_PATH}/common.sh && build_openwrt
