@@ -45,16 +45,22 @@
 		local conn_max = tonumber(luci.sys.exec(
 			"sysctl -n -e net.nf_conntrack_max net.ipv4.netfilter.ip_conntrack_max"
 		):match("%d+")) or 4096
-		
-		local user_info = luci.sys.exec("cat /proc/net/arp | grep 'br-lan' | grep '0x2' | wc -l")
+
+		local cpu_info = luci.sys.exec("cpuinfo")
+
+		local eth_info = luci.sys.exec("ethinfo")
+
+		local user_info = luci.sys.exec("cat /proc/net/arp | grep '0x2' | wc -l") or 0
 		
 		local cpu_usage = (luci.sys.exec("expr 100 - $(top -n 1 | grep 'CPU:' | awk -F '%' '{print$4}' | awk -F ' ' '{print$2}')") or "6") .. "%"
 
 		local rv = {
 			cpuusage    = cpu_usage,
+			cpuinfo    = cpu_info,
+			ethinfo    = eth_info,
 			userinfo    = user_info,
 			uptime     = sysinfo.uptime or 0,
-			localtime  = os.date(),
+			localtime  = os.date("%Y-%m-%d") .. " " .. translate(os.date("%A")) .. " " .. os.date("%X"),
 			loadavg    = sysinfo.load or { 0, 0, 0 },
 			memory     = meminfo,
 			memcached  = mem_cached,
@@ -115,7 +121,7 @@
 
 <%+header%>
 
-<script type="text/javascript" src="<%=resource%>/cbi.js?v=git-23.141.16773-28dd4b3"></script>
+<script type="text/javascript" src="<%=resource%>/cbi.js?v=git-19.167.54478-71e2af4"></script>
 <script type="text/javascript">//<![CDATA[
 	function progressbar(v, m)
 	{
@@ -182,7 +188,7 @@
 		});
 	}
 
-	XHR.poll(5, '<%=REQUEST_URI%>', { status: 1 },
+	XHR.poll(1, '<%=REQUEST_URI%>', { status: 1 },
 		function(x, info)
 		{
 			if (!(npoll++ % 5))
@@ -497,7 +503,7 @@
 						if (!is_assoc)
 							icon = "<%=resource%>/icons/signal-none.png";
 						else if (net.quality == 0)
-							icon = "<%=resource%>/icons/signal-75-100.png";
+							icon = "<%=resource%>/icons/signal-0.png";
 						else if (net.quality < 25)
 							icon = "<%=resource%>/icons/signal-0-25.png";
 						else if (net.quality < 50)
@@ -517,7 +523,7 @@
 								'<strong><%:Channel%>:</strong> %d (%.3f <%:GHz%>)<br />' +
 								'<strong><%:Bitrate%>:</strong> %s <%:Mbit/s%><br />',
 								icon, net.signal, net.noise,
-								(net.quality == 0) ? 100 : net.quality,
+								net.quality,
 								net.link, net.ssid || '?',
 								net.mode,
 								net.channel, net.frequency,
@@ -641,14 +647,31 @@
 
 			var e;
 
+			if (e = document.getElementById('ethinfo'))			{
+				var ports = eval('(' + info.ethinfo + ')');
+				var tmp = "";
+				for (var i in ports)
+				{
+					tmp = tmp + String.format(
+							'<td style="text-align:center"><span style="line-height:25px">%s</span><br /><small><img src="<%=resource%>/icons/%s" /><br />%s<br />%s</small></td>',							ports[i].name,
+							ports[i].status ? 'port_up.png' : 'port_down.png',
+							ports[i].speed,
+							ports[i].duplex ? '<%:full-duplex%>' : '<%:half-duplex%>');
+				};
+				e.innerHTML = "<tr>" + tmp + "</tr>";
+			}
+
 			if (e = document.getElementById('localtime'))
 				e.innerHTML = info.localtime;
 
 			if (e = document.getElementById('uptime'))
 				e.innerHTML = String.format('%t', info.uptime);
-				
+
 			if (e = document.getElementById('userinfo'))
 				e.innerHTML = info.userinfo;
+
+			if (e = document.getElementById('cpuinfo'))
+				e.innerHTML = info.cpuinfo;
 				
 			if (e = document.getElementById('cpuusage'))
 				e.innerHTML = info.cpuusage;
@@ -700,18 +723,25 @@
 	<table width="100%" cellspacing="10">
 		<tr><td width="33%"><%:Hostname%></td><td><%=luci.sys.hostname() or "?"%></td></tr>
 		<tr><td width="33%"><%:Model%></td><td><%=pcdata(boardinfo.model or "?")%> <%=luci.sys.exec("cat /etc/bench.log") or " "%></td></tr>
-		<tr><td width="33%"><%:Architecture%></td><td><%=pcdata(boardinfo.system or "ARMv8 Processor")%> x <%=luci.sys.exec("cat /proc/cpuinfo | grep 'processor' | wc -l") or "1"%></td></tr>
+		<tr><td width="33%"><%:CPU Info%></td><td id="cpuinfo">-</td></tr>
 		<tr><td width="33%"><%:Firmware Version%></td><td>
-			<%=pcdata(ver.distname)%> <%=pcdata(ver.distversion)%> /
-			<%=pcdata(ver.luciname)%> (<%=pcdata(ver.luciversion)%>)
+			<%=pcdata(ver.distname)%> <%=pcdata(ver.distversion)%><!-- /
+			<%=pcdata(ver.luciname)%> (<%=pcdata(ver.luciversion)%>)-->
 		</td></tr>
 		<tr><td width="33%"><%:Kernel Version%></td><td><%=unameinfo.release or "?"%></td></tr>
 		<tr><td width="33%"><%:Local Time%></td><td id="localtime">-</td></tr>
 		<tr><td width="33%"><%:Uptime%></td><td id="uptime">-</td></tr>
 		<tr><td width="33%"><%:Load Average%></td><td id="loadavg">-</td></tr>
 		<tr><td width="33%"><%:CPU usage (%)%></td><td id="cpuusage">-</td></tr>
+</table>
+</fieldset>
+<fieldset class="cbi-section">
+                                <td id="cpr">
+<input type="button" class="cbi-button cbi-button-apply" value="<%:【GXNAS博客】%> " onclick="window.open('https://wp.gxnas.com/')" />
+<input type="button" class="cbi-button cbi-button-apply" value="<%:【固件下载】%> " onclick="window.open('https://dl.gxnas.com:1443/?dir=/OpenWrt_x64%EF%BC%88%E8%BD%AF%E8%B7%AF%E7%94%B1%E7%B3%BB%E7%BB%9F_64%E4%BD%8D%EF%BC%89/')" />
 	</table>
 </fieldset>
+
 
 <fieldset class="cbi-section">
 	<legend><%:Memory%></legend>
@@ -732,6 +762,15 @@
 	</table>
 </fieldset>
 <% end %>
+
+<fieldset class="cbi-section">
+<iframe allowtransparency="true" frameborder="0" width="1100" height="86" scrolling="no" src="//tianqi.2345.com/plugin/widget/index.htm?s=2&z=1&t=0&v=0&d=5&bd=0&k=000000&f=&ltf=009944&htf=cc0000&q=1&e=1&a=1&c=57083&w=575&h=96&align=right"></iframe>
+
+	<legend><%:Interfaces%></legend>
+
+	<table width="100%" cellspacing="10" id="ethinfo">
+	</table>
+</fieldset>
 
 <fieldset class="cbi-section">
 	<legend><%:Network%></legend>
