@@ -721,7 +721,7 @@
 	<legend><%:System%></legend>
 
 	<table width="100%" cellspacing="10">
-		<tr><td width="33%"><%:Hostname%></td><td><%=luci.sys.hostname() or "?"%></td></tr>
+		<tr><td width="33%"><%:Hostname%></td><td><%HeperWrt_Lite%></td></tr>
 		<tr><td width="33%"><%:Model%></td><td><%=pcdata(boardinfo.model or "?")%> <%=luci.sys.exec("cat /etc/bench.log") or " "%></td></tr>
 		<tr><td width="33%"><%:CPU Info%></td><td id="cpuinfo">-</td></tr>
 		<tr><td width="33%"><%:Firmware Version%></td><td>
