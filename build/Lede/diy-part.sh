@@ -7,7 +7,7 @@
 # 后台IP设置
 export Ipv4_ipaddr="10.1.1.8"            # 修改openwrt后台地址(填0为关闭)
 export Netmask_netm="255.255.255.0"          # IPv4 子网掩码（默认：255.255.255.0）(填0为不作修改)
-export Op_name="OpenWrt-Heper"               # 修改主机名称为OpenWrt-123(填0为不作修改)
+export Op_name="HeperWrt_Lite"               # 修改主机名称为OpenWrt-123(填0为不作修改)
 
 # 内核和系统分区大小(不是每个机型都可用)
 export Kernel_partition_size="32"            # 内核分区大小 (填写您想要的数值,数值以MB计算，填0为不作修改),如果你不懂就填0
