@@ -65,6 +65,20 @@ jobs:
         fi
         source build/${FOLDER_NAME}/common.sh && CPU_Priority
         
+    - name: 释放Ubuntu磁盘空间
+      uses: jlumbroso/free-disk-space@main
+      with:
+        # this might remove tools that are actually needed,
+        # if set to "true" but frees about 6 GB
+        tool-cache: true
+        # all of these default to true, but feel free to set to
+        # "false" if necessary for your workflow
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        swap-storage: true
+
     - name: 部署编译环境
       env:
         DEBIAN_FRONTEND: noninteractive
