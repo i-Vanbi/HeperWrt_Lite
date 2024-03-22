@@ -38,7 +38,7 @@ jobs:
 
     steps:    
     - name: 准备结束
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: 检测文件和对比上游版本
       run: |
@@ -61,12 +61,18 @@ jobs:
         cd ${GITHUB_WORKSPACE}
         source build/${FOLDER_NAME}/common.sh && CPU_Priority
 
-    - name: 释放Ubuntu磁盘空间
+    - name: 删除框架
+      run: |
+        sudo apt-get update
+        sudo apt-get remove -y '^dotnet-.*'
+
+    - name: 清理空间
       uses: jlumbroso/free-disk-space@main
       with:
         # this might remove tools that are actually needed,
         # if set to "true" but frees about 6 GB
         tool-cache: true
+        
         # all of these default to true, but feel free to set to
         # "false" if necessary for your workflow
         android: true
@@ -74,6 +80,14 @@ jobs:
         haskell: true
         large-packages: true
         swap-storage: true
+
+    - name: 查看Ubuntu磁盘空间
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        echo "================================================="
+        echo "文件系统        类型   容量  已用  可用 使用% 挂载点"
+        df -hT $PWD
         
     - name: 部署编译环境
       env:
@@ -169,7 +183,7 @@ jobs:
         
     - name: 上传固件在 github Artifacts
       if: steps.compile.outcome == 'success' && env.UPLOAD_FIRMWARE == 'true'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@main
       with:
         #name: ${{ env.SOURCE }}-${{ env.LUCI_EDITION }}-${{ env.TARGET_PROFILE }}-firmware-${{ env.Firmware_Date }}
         name: OpenWrt_x64_all-${{ env.Firmware_Date }}
@@ -177,7 +191,7 @@ jobs:
     
     - name: 发布固件
       if: steps.compile.outcome == 'success' && env.UPLOAD_RELEASE == 'true' && env.ING_FIRMWAR == 'true' && env.REPO_TOKEN
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1
       with:
         #name: ${{ env.SOURCE }}-${{ env.PROMPT_TING }}
         name: OpenWrt_x64_all-${{ env.Firmware_Date }}
@@ -191,7 +205,7 @@ jobs:
     - name: 发送[在线更新固件]至云端1
       id: autoup
       if: steps.compile.outcome == 'success' && env.UPDATE_FIRMWARE_ONLINE == 'true' && env.REPO_TOKEN
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1
       with:
         name: AutoUpdate
         tag: ${{ env.Update_tag }}
@@ -213,7 +227,7 @@ jobs:
         
     - name: 发送[在线更新固件]至云端3
       if: steps.autoup.outcome == 'success' && env.UPDATE_FIRMWARE_ONLINE == 'true' && env.REPO_TOKEN
-      uses: ncipollo/release-action@main
+      uses: ncipollo/release-action@v1
       with:
         #name: AutoUpdate-${{ env.TARGET_BOARD }}
         name: AutoUpdate
