@@ -5,10 +5,10 @@
 # 不要一下就拉取别人一个插件包N多插件的，多了没用，增加编译错误，自己需要的才好
 
 #添加homeproxy插件
-git clone https://github.com/douglarek/luci-app-homeproxy.git package/luci-app-homeproxy
+#git clone https://github.com/douglarek/luci-app-homeproxy.git package/luci-app-homeproxy
 
 #添加unblockneteasemusic插件
-git clone https://github.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic.git package/luci-app-unblockneteasemusic
+#git clone https://github.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic.git package/luci-app-unblockneteasemusic
 
 
 #添加CPU使用率、编译作者、固件下载地址
@@ -53,7 +53,7 @@ export PassWall_luci_branch="0"              # passwall的源码分别有【luci
 
 # 替换OpenClash的源码(默认master分支)
 export OpenClash_branch="0"                  # OpenClash的源码分别有【master分支】和【dev分支】(填0为使用master分支,填1为使用dev分支)
-export OpenClash_Core="2"                    # 增加OpenClash时,把核心下载好,(填1为下载【dev单核】,填2为下载【dev/meta/premium三核】,填0为不需要核心)
+export OpenClash_Core="0"                    # 增加OpenClash时,把核心下载好,(填1为下载【dev单核】,填2为下载【dev/meta/premium三核】,填0为不需要核心)
 
 # 个性签名,默认增加年月日[$(TZ=UTC-8 date "+%Y.%m.%d")]
 export Customized_Information="HeperWrt by OM-Heper build $(TZ=UTC-8 date "+%Y.%m.%d")"  # 个性签名,你想写啥就写啥，(填0为不作修改)
